@@ -1,0 +1,4 @@
+rlbot==1.*
+rlbottraining
+
+pip
