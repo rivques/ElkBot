@@ -1,80 +1,203 @@
-from routines import *
+from routines import Aerial, double_jump, ground_shot, jump_shot, virxrlcu
+from utils import Vector, cap, math, side
 
-#This file is for strategic tools
 
-def find_hits(agent,targets):
-    #find_hits takes a dict of (left,right) target pairs and finds routines that could hit the ball between those target pairs
-    #find_hits is only meant for routines that require a defined intercept time/place in the future
-    #find_hits should not be called more than once in a given tick, as it has the potential to use an entire tick to calculate
+def find_ground_shot(agent, target, cap_=6):
+    return find_shot(agent, target, cap_, can_aerial=False, can_double_jump=False, can_jump=False)
 
-    #Example Useage:
-    #targets = {"goal":(opponent_left_post,opponent_right_post), "anywhere_but_my_net":(my_right_post,my_left_post)}
-    #hits = find_hits(agent,targets)
-    #print(hits)
-    #>{"goal":[a ton of jump and aerial routines,in order from soonest to latest], "anywhere_but_my_net":[more routines and stuff]}
-    hits = {name:[] for name in targets}
-    struct = agent.get_ball_prediction_struct()
-    
-    #Begin looking at slices 0.25s into the future
-    #The number of slices 
-    i = 15
-    while i < struct.num_slices:
-        #Gather some data about the slice
-        intercept_time = struct.slices[i].game_seconds
-        time_remaining = intercept_time - agent.time
+
+def find_any_ground_shot(agent, cap_=6):
+    return find_any_shot(agent, cap_, can_aerial=False, can_double_jump=False, can_jump=False)
+
+
+def find_jump_shot(agent, target, cap_=6):
+    return find_shot(agent, target, cap_, can_aerial=False, can_double_jump=False, can_ground=False)
+
+
+def find_any_jump_shot(agent, cap_=6):
+    return find_any_shot(agent, cap_, can_aerial=False, can_double_jump=False, can_ground=False)
+
+
+def find_double_jump(agent, target, cap_=6):
+    return find_shot(agent, target, cap_, can_aerial=False, can_jump=False, can_ground=False)
+
+
+def find_any_double_jump(agent, cap_=6):
+    return find_any_shot(agent, cap_, can_aerial=False, can_jump=False, can_ground=False)
+
+
+def find_aerial(agent, target, cap_=6):
+    return find_shot(agent, target, cap_, can_double_jump=False, can_jump=False, can_ground=False)
+
+
+def find_any_aerial(agent, cap_=6):
+    return find_any_shot(agent, cap_, can_double_jump=False, can_jump=False, can_ground=False)
+
+
+def find_shot(agent, target, cap_=6, can_aerial=True, can_double_jump=True, can_jump=True, can_ground=True):
+    if not can_aerial and not can_double_jump and not can_jump and not can_ground:
+        agent.print("WARNING: All shots were disabled when find_shot was ran")
+        return
+
+    # Takes a tuple of (left,right) target pairs and finds routines that could hit the ball between those target pairs
+    # Only meant for routines that require a defined intercept time/place in the future
+
+    # Assemble data in a form that can be passed to C
+    targets = (
+        tuple(target[0]),
+        tuple(target[1])
+    )
+
+    me = agent.me.get_raw(agent)
+
+    game_info = (
+        agent.boost_accel,
+        agent.best_shot_value
+    )
+
+    gravity = tuple(agent.gravity)
+
+    is_on_ground = not agent.me.airborne
+    can_ground = is_on_ground and can_ground
+    can_jump = is_on_ground and can_jump
+    can_double_jump = is_on_ground and can_double_jump
+
+    if not can_ground and not can_jump and not can_double_jump and not can_aerial:
+        return
+
+    # Here we get the slices that need to be searched - by defining a cap, we can reduce the number of slices and improve search times
+    slices = get_slices(agent, cap_)
+
+    if slices is None:
+        return
+
+    # Loop through the slices
+    for ball_slice in slices:
+        # Gather some data about the slice
+        intercept_time = ball_slice.game_seconds
+        time_remaining = intercept_time - agent.time - (1 / 120)
+
+        if time_remaining <= 0:
+            return
+
+        ball_location = (ball_slice.physics.location.x, ball_slice.physics.location.y, ball_slice.physics.location.z)
+
+        if abs(ball_location[1]) > 5212.75:
+            return  # abandon search if ball is scored at/after this point
+
+        ball_info = (ball_location, (ball_slice.physics.velocity.x, ball_slice.physics.velocity.y, ball_slice.physics.velocity.z))
+
+        # Check if we can make a shot at this slice
+        # This operation is very expensive, so we use C to improve run time
+        shot = virxrlcu.parse_slice_for_shot_with_target(can_ground, can_jump, can_double_jump, can_aerial, time_remaining, *game_info, gravity, ball_info, me, targets)
+
+        if shot['found'] == 1:
+            if shot['shot_type'] == 3:
+                return Aerial(intercept_time, (Vector(*shot['targets'][0]), Vector(*shot['targets'][1])), shot['fast'])
+
+            shot_switch = [
+                ground_shot,
+                jump_shot,
+                double_jump
+            ]
+            return shot_switch[shot['shot_type']](intercept_time, (Vector(*shot['targets'][0]), Vector(*shot['targets'][1])))
+
+
+def find_any_shot(agent, cap_=6, can_aerial=True, can_double_jump=True, can_jump=True, can_ground=True):
+    if not can_aerial and not can_double_jump and not can_jump and not can_ground:
+        agent.print("WARNING: All shots were disabled when find_any_shot was ran")
+        return
+
+    # Only meant for routines that require a defined intercept time/place in the future
+
+    # Assemble data in a form that can be passed to C
+    me = agent.me.get_raw(agent)
+
+    game_info = (
+        agent.boost_accel,
+        agent.best_shot_value
+    )
+
+    gravity = tuple(agent.gravity)
+
+    is_on_ground = not agent.me.airborne
+    can_ground = is_on_ground and can_ground
+    can_jump = is_on_ground and can_jump
+    can_double_jump = is_on_ground and can_double_jump
+
+    if not can_ground and not can_jump and not can_double_jump and not can_aerial:
+        return
+
+    # Here we get the slices that need to be searched - by defining a cap, we can reduce the number of slices and improve search times
+    slices = get_slices(agent, cap_)
+
+    if slices is None:
+        return
+
+    # Loop through the slices
+    for ball_slice in slices:
+        # Gather some data about the slice
+        intercept_time = ball_slice.game_seconds
+        time_remaining = intercept_time - agent.time - (1 / 120)
+
+        if time_remaining <= 0:
+            return
+
+        ball_location = (ball_slice.physics.location.x, ball_slice.physics.location.y, ball_slice.physics.location.z)
+
+        if abs(ball_location[1]) > 5212.75:
+            return  # abandon search if ball is scored at/after this point
+
+        ball_info = (ball_location, (ball_slice.physics.velocity.x, ball_slice.physics.velocity.y, ball_slice.physics.velocity.z))
+
+        # Check if we can make a shot at this slice
+        # This operation is very expensive, so we use C to improve run time
+        shot = virxrlcu.parse_slice_for_shot(can_ground, can_jump, can_double_jump, can_aerial, time_remaining, *game_info, gravity, ball_info, me)
+
+        if shot['found'] == 1:
+            if shot['shot_type'] == 3:
+                return Aerial(intercept_time, fast_aerial=shot['fast'])
+
+            shot_switch = [
+                ground_shot,
+                jump_shot,
+                double_jump
+            ]
+            return shot_switch[shot['shot_type']](intercept_time)
+
+
+def get_slices(agent, cap_):
+    # Get the struct
+    struct = agent.ball_prediction_struct
+
+    # Make sure it isn't empty
+    if struct is None:
+        return
+
+    start_slice = 12
+    end_slices = None
+
+    # If we're shooting, crop the struct
+    if agent.shooting and agent.stack[0].__class__.__name__ != "short_shot":
+        # Get the time remaining
+        time_remaining = agent.stack[0].intercept_time - agent.time
+        if time_remaining < 0.5 and time_remaining >= 0:
+            return
+            
+        # if the shot is done but it's working on it's 'follow through', then ignore this stuff
         if time_remaining > 0:
-            ball_location = Vector3(struct.slices[i].physics.location)
-            ball_velocity = Vector3(struct.slices[i].physics.velocity).magnitude()
+            # Convert the time remaining into number of slices, and take off the minimum gain accepted from the time
+            min_gain = 0.05
+            end_slice = round(min(time_remaining - min_gain, cap_) * 60)
 
-            if abs(ball_location[1]) > 5250:
-                break #abandon search if ball is scored at/after this point
-        
-            #determine the next slice we will look at, based on ball velocity (slower ball needs fewer slices)
-            i += 15 - cap(int(ball_velocity//150),0,13)
-            
-            car_to_ball = ball_location - agent.me.location
-            #Adding a True to a vector's normalize will have it also return the magnitude of the vector
-            direction, distance = car_to_ball.normalize(True)
+    if end_slices is None:
+        # Cap the slices
+        end_slice = round(cap_ * 60)
 
+    # We can't end a slice index that's lower than the start index
+    if end_slice <= start_slice:
+        return
 
-            #How far the car must turn in order to face the ball, for forward and reverse
-            forward_angle = direction.angle(agent.me.forward)
-            backward_angle = math.pi - forward_angle
-
-            #Accounting for the average time it takes to turn and face the ball
-            #Backward is slightly longer as typically the car is moving forward and takes time to slow down
-            forward_time = time_remaining - (forward_angle * 0.318)
-            backward_time = time_remaining - (backward_angle * 0.418)
-
-            #If the car only had to drive in a straight line, we ensure it has enough time to reach the ball (a few assumptions are made)
-            forward_flag = forward_time > 0.0 and (distance*1.025 / forward_time) < (2299 if agent.me.boost > distance/100 else max(1400, 0.8 * agent.me.velocity.flatten().magnitude()))
-            backward_flag = distance < 1500 and backward_time > 0.0 and (distance*1.05 / backward_time) < 1200
-            
-            #Provided everything checks out, we begin to look at the target pairs
-            if forward_flag or backward_flag:
-                for pair in targets:
-                    #First we correct the target coordinates to account for the ball's radius
-                    #If fits == True, the ball can be scored between the target coordinates
-                    left, right, fits = post_correction(ball_location, targets[pair][0], targets[pair][1])
-                    if fits:
-                        #Now we find the easiest direction to hit the ball in order to land it between the target points
-                        left_vector = (left - ball_location).normalize()
-                        right_vector = (right - ball_location).normalize()
-                        best_shot_vector = direction.clamp(left_vector, right_vector)
-                        
-                        #Check to make sure our approach is inside the field
-                        if True: # in_field(ball_location - (200*best_shot_vector),1):
-                            #The slope represents how close the car is to the chosen vector, higher = better
-                            #A slope of 1.0 would mean the car is 45 degrees off
-                            slope = find_slope(best_shot_vector.flatten(),car_to_ball.flatten())
-                            if forward_flag:
-                                if (ball_location[2] <= 300 or (not in_field(ball_location, 200) and not in_field(agent.me.location, 100))) and slope > 0.0:
-                                    hits[pair].append(jump_shot(ball_location,intercept_time,best_shot_vector,slope))
-                                if ball_location[2] > 325 and slope > 1 and cap(ball_location[2]-400, 100, 2000) * 0.1 < agent.me.boost:
-                                    if abs((car_to_ball / forward_time) - agent.me.velocity).magnitude() - 300 < 400 * forward_time:
-                                        hits[pair].append(aerial_shot(ball_location,intercept_time,best_shot_vector,slope))
-                            elif backward_flag and ball_location[2] <= 280 and slope > 0.25:
-                                hits[pair].append(jump_shot(ball_location,intercept_time,best_shot_vector,slope,-1))
-        else:
-            i += 1
-    return hits
+    # for every second worth of slices that we have to search, skip 1 more slice (for performance reasons) - min 1 and max 3
+    skip = cap(end_slice - start_slice / 60, 1, 3)
+    return struct.slices[start_slice:end_slice:skip]
