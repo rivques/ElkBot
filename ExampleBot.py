@@ -63,8 +63,22 @@ class ExampleBot(VirxERLU):
                 self.pop()
             self.state = None
             if self.kickoff_flag:
-                self.push(generic_kickoff())
-                self.state = 'kickoff'
+                my_kickoff = True
+                for friend in self.friends:
+                    if (friend.location - self.ball.location).magnitude() < (self.me.location - self.ball.location).magnitude():
+                        my_kickoff = False
+                if my_kickoff:
+                    self.push(generic_kickoff())
+                    self.state = 'my kickoff'
+                else:
+                    boosts = [boost for boost in self.boosts if boost.large and boost.active]
+                    if len(boosts) > 0:
+                        closest = boosts[0]
+                        for boost in boosts:
+                            if (boost.location - self.me.location).magnitude() < (closest.location - self.me.location).magnitude():
+                                closest = boost
+                        self.push(goto_boost(closest))
+                        self.state = 'kickoff (getting boost)'
             elif need_to_save or ball_third == -1:
                 left_field = Vector(4200*(-side(self.team)), self.ball.location.y + 1000*(-side(self.team)), 0)
                 right_field = Vector(4200*(side(self.team)), self.ball.location.y + 1000*(-side(self.team)), 0)
