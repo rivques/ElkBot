@@ -10,7 +10,7 @@ class ExampleBot(VirxERLU):
     def initialize_agent(self):
         super().initialize_agent()
         self.state = None
-        self.debug = True
+        self.do_debug = True
     def run(self):
         num_foes = len(self.foes)
         my_goal_to_ball, my_ball_distance = (self.ball.location-self.friend_goal.location).normalize(True)
@@ -18,13 +18,14 @@ class ExampleBot(VirxERLU):
         my_distance = my_goal_to_ball.dot(goal_to_me)
 
         foe_goal_to_ball, foe_ball_distance = (self.ball.location-self.friend_goal.location).normalize(True)
-        try:
+
+        foe_onside = False
+
+        for foe in self.foes:
             foe_goal_to_foe = self.foes[0].location-self.friend_goal.location
-        except IndexError:
-            foe_onside = True
-        else:
             foe_distance = foe_goal_to_ball.dot(foe_goal_to_foe)
-            foe_onside = foe_distance - 200 < foe_ball_distance
+            if foe_distance - 200 < foe_ball_distance:
+                foe_onside = True
 
         me_onside = my_distance - 200 < my_ball_distance
         close = (self.me.location - self.ball.location).magnitude() < 2000
@@ -151,7 +152,7 @@ class ExampleBot(VirxERLU):
                 else:
                     self.state += ' (In goal)'
 
-        if self.debug:
+        if self.do_debug:
             
             for stackitem in self.stack:
                 if hasattr(stackitem, 'ball_location'):
