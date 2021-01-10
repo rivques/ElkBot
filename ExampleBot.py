@@ -2,6 +2,7 @@ from tools import  *
 from utils import *
 from routines import *
 from agent import *
+from custom_routines import *
 
 
 #This file is for strategy
@@ -57,7 +58,7 @@ class ExampleBot(VirxERLU):
                 break
             
 
-        self.renderer.draw_polyline_3d([pred_slice.physics.location for pred_slice in struct.slices], self.renderer.cyan())
+        
 
         if len(self.stack) < 1 or (self.state == 'getting boost' and len(self.stack) == 1):
             if self.state == 'getting boost' and len(self.stack) == 1:
@@ -65,21 +66,26 @@ class ExampleBot(VirxERLU):
             self.state = None
             if self.kickoff_flag:
                 my_kickoff = True
-                for friend in self.friends:
-                    if (friend.location - self.ball.location).magnitude() < (self.me.location - self.ball.location).magnitude():
-                        my_kickoff = False
-                if my_kickoff:
-                    self.push(generic_kickoff())
-                    self.state = 'my kickoff'
+                if abs(self.me.location.x) == 2048 and self.me.index == 0:
+                    self.print(f'ElkBot {self.me.index} is speedflipping!')
+                    self.push(speed_flip_kickoff())
+                    self.state = 'speedflip kickoff'
                 else:
-                    boosts = [boost for boost in self.boosts if boost.large and boost.active]
-                    if len(boosts) > 0:
-                        closest = boosts[0]
-                        for boost in boosts:
-                            if (boost.location - self.me.location).magnitude() < (closest.location - self.me.location).magnitude():
-                                closest = boost
-                        self.push(goto_boost(closest))
-                        self.state = 'kickoff (getting boost)'
+                    for friend in self.friends:
+                        if (friend.location - self.ball.location).magnitude() < (self.me.location - self.ball.location).magnitude():
+                            my_kickoff = False
+                    if my_kickoff:
+                        self.push(generic_kickoff())
+                        self.state = 'my kickoff'
+                    else:
+                        boosts = [boost for boost in self.boosts if boost.large and boost.active]
+                        if len(boosts) > 0:
+                            closest = boosts[0]
+                            for boost in boosts:
+                                if (boost.location - self.me.location).magnitude() < (closest.location - self.me.location).magnitude():
+                                    closest = boost
+                            self.push(goto_boost(closest))
+                            self.state = 'kickoff (getting boost)'
             elif need_to_save or ball_third == -1:
                 left_field = Vector(4200*(-side(self.team)), self.ball.location.y + 1000*(-side(self.team)), 0)
                 right_field = Vector(4200*(side(self.team)), self.ball.location.y + 1000*(-side(self.team)), 0)
@@ -153,7 +159,8 @@ class ExampleBot(VirxERLU):
                     self.state += ' (In goal)'
 
         if self.do_debug:
-            
+            #this overdoes the rendering, needs fixing
+            # self.renderer.draw_polyline_3d([pred_slice.physics.location for pred_slice in struct.slices], self.renderer.cyan())
             for stackitem in self.stack:
                 if hasattr(stackitem, 'ball_location'):
                     self.draw_cube_wireframe(stackitem.ball_location, self.renderer.pink())
