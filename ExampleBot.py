@@ -66,8 +66,8 @@ class ExampleBot(VirxERLU):
             self.state = None
             if self.kickoff_flag:
                 my_kickoff = True
-                if abs(self.me.location.x) == 2048 and self.me.index == 0:
-                    self.print(f'ElkBot {self.me.index} is speedflipping!')
+                if abs(self.me.location.x) == 2048:
+                    self.print(f'speedflipping!')
                     self.push(speed_flip_kickoff())
                     self.state = 'speedflip kickoff'
                 else:
