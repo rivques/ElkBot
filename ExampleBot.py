@@ -86,7 +86,7 @@ class ExampleBot(VirxERLU):
                                     closest = boost
                             self.push(goto_boost(closest))
                             self.state = 'kickoff (getting boost)'
-            elif need_to_save or ball_third == -1:
+            elif need_to_save:
                 left_field = Vector(4200*(-side(self.team)), self.ball.location.y + 1000*(-side(self.team)), 0)
                 right_field = Vector(4200*(side(self.team)), self.ball.location.y + 1000*(-side(self.team)), 0)
                 self.state = 'need to save'
