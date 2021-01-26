@@ -1,7 +1,7 @@
-from tools import  *
-from utils import *
-from routines import *
-from agent import *
+from util.tools import  *
+from util.utils import *
+from util.routines import *
+from util.agent import *
 from custom_routines import *
 
 
@@ -173,7 +173,7 @@ class ExampleBot(VirxERLU):
             my_point = self.friend_goal.location + (my_goal_to_ball * my_distance)
             self.line(my_point - Vector(0,0,100),  my_point + Vector(0,0,100), (0,255,0))
             car_to_ball = 'working!'
-            self.renderer.draw_string_2d(10, 30*(self.index + 10), 2, 2, (str(ball_third) + ' ' + str(return_to_goal) + ' ' + str(need_to_save) + ' ' + str(self.state) + ' ' + str(car_to_ball)), self.renderer.white())
+            self.renderer.draw_string_2d(10, 30*(self.index + 10)-30, 2, 2, (str(ball_third) + ' ' + str(return_to_goal) + ' ' + str(need_to_save) + ' ' + str(self.state) + ' ' + str(car_to_ball)), self.renderer.white())
 
     def draw_cube_wireframe(self, center, color, size=75):
         points = []
@@ -189,16 +189,19 @@ class ExampleBot(VirxERLU):
                 if abs((point-other_point).magnitude()) == size:
                     self.renderer.draw_line_3d(point, other_point, color)
     
-    def find_hits(self, targets, test_for_ground_shot=True):
+    def find_hits(self, targets, test_for_slow_shots=True):
         output = {}
         for name, target in targets.items():
             shot = find_shot(self, target)
-            if shot is not None and test_for_ground_shot:
+            if shot is not None and test_for_slow_shots:
                 ball_pos_at_time = self.get_ball_prediction_struct().slices[round((shot.intercept_time - self.time) * 60) - 1].physics.location
                 ball_vec_at_time = Vector(ball_pos_at_time.x, ball_pos_at_time.y, ball_pos_at_time.z)
-                if shot.__class__.__name__ == 'ground_shot' and ((ball_vec_at_time - self.me.location).magnitude()/(shot.intercept_time-self.time)) < 500:
-                    shot = find_shot(self, target, can_ground=False)
-                    self.print('bad ground shot!')
+                if (shot.__class__.__name__ in ['ground_shot', 'jump_shot']) and ((ball_vec_at_time - self.me.location).magnitude()/(shot.intercept_time-self.time)) < 500:
+                    #these are inverted bc we want them to be false if it is
+                    is_ground = not shot.__class__.__name__ == 'ground_shot'
+                    is_jump = not shot.__class__.__name__ == 'jump_shot'
+                    self.print(f'bad {shot.__class__.__name__}!')
+                    shot = find_shot(self, target, can_ground=is_ground, can_jump=is_jump)
             output[name] = shot
         return output
         
