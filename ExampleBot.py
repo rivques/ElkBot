@@ -189,20 +189,35 @@ class ExampleBot(VirxERLU):
                 if abs((point-other_point).magnitude()) == size:
                     self.renderer.draw_line_3d(point, other_point, color)
     
-    def find_hits(self, targets, test_for_slow_shots=True):
+    def find_hits(self, targets, test_for_slow_ground_shots=True, test_for_slow_jump_shots=True, test_for_unnecessaerials=True):
         output = {}
         for name, target in targets.items():
-            shot = find_shot(self, target)
-            if shot is not None and test_for_slow_shots:
-                ball_pos_at_time = self.get_ball_prediction_struct().slices[round((shot.intercept_time - self.time) * 60) - 1].physics.location
-                ball_vec_at_time = Vector(ball_pos_at_time.x, ball_pos_at_time.y, ball_pos_at_time.z)
-                if (shot.__class__.__name__ in ['ground_shot', 'jump_shot']) and ((ball_vec_at_time - self.me.location).magnitude()/(shot.intercept_time-self.time)) < 500:
-                    #these are inverted bc we want them to be false if it is
-                    is_ground = not shot.__class__.__name__ == 'ground_shot'
-                    is_jump = not shot.__class__.__name__ == 'jump_shot'
-                    self.print(f'bad {shot.__class__.__name__}!')
-                    shot = find_shot(self, target, can_ground=is_ground, can_jump=is_jump)
+            have_failed_ground = False
+            have_failed_jump = False
+            have_failed_aerial = False
+            while True:
+                shot = find_shot(self, target, can_ground=(not have_failed_ground), can_jump=(not have_failed_jump), can_aerial=(not have_failed_aerial))
+                if shot is None:
+                    break
+                shot_name = shot.__class__.__name__
+                ball_pos_at_intercept = self.get_ball_prediction_struct().slices[round((shot.intercept_time - self.time) * 60) - 1].physics.location
+                ball_vec_at_intercept = Vector(ball_pos_at_intercept.x, ball_pos_at_intercept.y, ball_pos_at_intercept.z)
+                avg_car_speed = (ball_vec_at_intercept - self.me.location).magnitude()/(shot.intercept_time-self.time)
+                if shot_name == 'ground_shot' and avg_car_speed < 500:
+                    have_failed_ground = True
+                    self.print('failed ' + shot_name)
+                    continue
+                if shot_name == 'jump_shot' and avg_car_speed < 500:
+                    have_failed_jump = True
+                    self.print('failed ' + shot_name)
+                    continue
+                # if shot_name == 'Aerial' and ball_vec_at_intercept.z < 100:
+                #     have_failed_aerial = True
+                #     self.print('failed ' + shot_name)
+                #     continue
+                break
             output[name] = shot
+            self.print(f'Final shot for target {name}: {shot.__class__.__name__}')
         return output
         
             
