@@ -17,7 +17,7 @@ from rlbot.agents.standalone.standalone_bot import StandaloneBot, run_bot
 TOURNAMENT_MODE = False
 
 # Make False to enable hot reloading, at the cost of the GUI
-EXTRA_DEBUGGING = True
+EXTRA_DEBUGGING = False
 
 if not TOURNAMENT_MODE and EXTRA_DEBUGGING:
     from gui import Gui
@@ -300,7 +300,7 @@ class VirxERLU(StandaloneBot):
                 except Exception:
                     t_file = os.path.join(self.traceback_file[0], self.name+self.traceback_file[1])
                     print(f"ERROR in {self.name}; see '{t_file}'")
-                    print_exc(file=open(t_file, "a"))
+                    print_exc()
 
                 # run the routine on the end of the stack
                 if not self.is_clear():
@@ -310,7 +310,7 @@ class VirxERLU(StandaloneBot):
                     except Exception:
                         t_file = os.path.join(self.traceback_file[0], r_name+self.traceback_file[1])
                         print(f"ERROR in {self.name}'s {r_name} routine; see '{t_file}'")
-                        print_exc(file=open(t_file, "a"))
+                        print_exc()
 
                 if self.debugging:
                     if self.debug_3d_bool:
@@ -366,7 +366,7 @@ class VirxERLU(StandaloneBot):
         except Exception:
             t_file = os.path.join(self.traceback_file[0], "VirxERLU"+self.traceback_file[1])
             print(f"ERROR with VirxERLU in {self.name}; see '{t_file}' and please report the bug at 'https://github.com/VirxEC/VirxERLU/issues'")
-            print_exc(file=open(t_file, "a"))
+            print_exc()
             return SimpleControllerState()
 
     def handle_match_comm(self, msg):
