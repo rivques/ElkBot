@@ -13,7 +13,6 @@ class ExampleBot(VirxERLU):
         super().initialize_agent()
         self.state = None
         self.do_debug = True
-        self.RTG_flip_time = 0
     def run(self):
         num_foes = len(self.foes)
         my_goal_to_ball, my_ball_distance = (self.ball.location-self.friend_goal.location).normalize(True)
