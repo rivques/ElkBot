@@ -14,7 +14,6 @@ class ExampleBot(VirxERLU):
         self.state = None
         self.do_debug = True
     def run(self):
-        num_foes = len(self.foes)
         my_goal_to_ball, my_ball_distance = (self.ball.location-self.friend_goal.location).normalize(True)
         goal_to_me = self.me.location-self.friend_goal.location
         my_distance = my_goal_to_ball.dot(goal_to_me)
@@ -24,7 +23,7 @@ class ExampleBot(VirxERLU):
         foe_onside = False
 
         for foe in self.foes:
-            foe_goal_to_foe = self.foes[0].location-self.friend_goal.location
+            foe_goal_to_foe = foe.location-self.friend_goal.location
             foe_distance = foe_goal_to_ball.dot(foe_goal_to_foe)
             if foe_distance - 200 < foe_ball_distance:
                 foe_onside = True
@@ -44,8 +43,6 @@ class ExampleBot(VirxERLU):
         return_to_goal = False
 
         need_to_save = False
-
-        bump_opponent = False
 
         struct = self.get_ball_prediction_struct()
         for pred_slice in struct.slices:
@@ -209,4 +206,3 @@ class ExampleBot(VirxERLU):
             output[name] = shot
         return output
         
-            
