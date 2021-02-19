@@ -4,6 +4,7 @@ from util.routines import *
 from util.agent import *
 from custom_routines import *
 
+# TODO: Improve goalie action with challenges, work on shot hit speed, implement rotations
 
 #This file is for strategy
 
@@ -58,7 +59,8 @@ class ExampleBot(VirxERLU):
                 bump_opponent = True
                 break
             
-
+        if len(self.stack) == 1 and hasattr(self.stack[0].__class__, "__name__") and self.stack[0].__class__.__name__ == 'retreat' and need_to_save and self.state != 'need to save (RTG)':
+            self.pop()
         
 
         if len(self.stack) < 1 or (self.state == 'getting boost' and len(self.stack) == 1):
@@ -151,17 +153,8 @@ class ExampleBot(VirxERLU):
                 self.controller.boost = False if abs(angles[1]) > 0.5 or self.me.airborne else self.controller.boost
                 self.controller.handbrake = True if abs(angles[1]) > 2.8 else False
             else:
-                if not (side(self.team) * self.me.location.y > 5120):
-                    relative_target = self.friend_goal.location - self.me.location
-                    angles, vel = defaultDrive(self, 2300, self.me.local(relative_target))
-                    if angles[1] < 0.75 and relative_target.magnitude() > 750 and 500 < self.me.velocity.magnitude() < 1000 and self.time - self.RTG_flip_time > 2:
-                        self.push(flip(self.me.local(relative_target)))
-                        self.RTG_flip_time = self.time
-                    else:
-                        self.controller.boost = False if abs(angles[1]) > 0.5 or self.me.airborne else self.controller.boost
-                        self.controller.handbrake = True if abs(angles[1]) > 2.8 else False
-                else:
-                    self.state += ' (In goal)'
+                if self.is_clear():
+                    self.push(retreat())
 
         if self.do_debug:
             #this overdoes the rendering, needs fixing
@@ -205,11 +198,9 @@ class ExampleBot(VirxERLU):
                 avg_car_speed = (ball_vec_at_intercept - self.me.location).magnitude()/(shot.intercept_time-self.time)
                 if shot_name == 'ground_shot' and avg_car_speed < 500:
                     have_failed_ground = True
-                    self.print('failed ' + shot_name)
                     continue
                 if shot_name == 'jump_shot' and avg_car_speed < 500:
                     have_failed_jump = True
-                    self.print('failed ' + shot_name)
                     continue
                 # if shot_name == 'Aerial' and ball_vec_at_intercept.z < 100:
                 #     have_failed_aerial = True
@@ -217,7 +208,6 @@ class ExampleBot(VirxERLU):
                 #     continue
                 break
             output[name] = shot
-            self.print(f'Final shot for target {name}: {shot.__class__.__name__}')
         return output
         
             
