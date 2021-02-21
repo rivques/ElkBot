@@ -1,4 +1,5 @@
-from enum import Enum, auto
+from custom_classes import getPosOnField
+from enums import *
 
 from util.tools import  *
 from util.utils import *
@@ -165,6 +166,10 @@ class ExampleBot(VirxERLU):
             self.line(my_point - Vector(0,0,100),  my_point + Vector(0,0,100), (0,255,0))
             car_to_ball = 'working!'
             self.renderer.draw_string_2d(10, 30*(self.index + 10)-30, 2, 2, (str(ball_third) + ' ' + str(return_to_goal) + ' ' + str(need_to_save) + ' ' + str(self.state) + ' ' + str(car_to_ball)), self.renderer.white())
+            for index, car in enumerate(self.foes + self.friends + tuple([self.me])):
+                fieldPos = getPosOnField(car)
+                string = f'{car.name}: {fieldPos.name}'
+                self.renderer.draw_string_2d(10, 30*(index + 10)+50, 2, 2, string, self.renderer.cyan())
 
     def draw_cube_wireframe(self, center, color, size=75):
         points = []
@@ -207,36 +212,3 @@ class ExampleBot(VirxERLU):
                 break
             output[name] = shot
         return output
-        
-class posRelativeToBall(Enum):
-    # right behind or under the ball
-    DRIBBLE = auto()
-    # just past the ball, perhaps due to a whiff
-    CLOSE_IN_FRONT = auto()
-    # in front of the ball, but not right in front of it
-    OFFSIDE = auto()
-    # behind the ball and facing away from it
-    FAR_BEHIND_AWAY = auto()
-    # behind the ball and facing towards it, perhaps attacking
-    FAR_BEHIND_TOWARD = auto()
-    # self explanatory
-    DEMOLISHED = auto() 
-
-class posOnField(Enum):
-    # in goal
-    GOALIE = auto()
-    # retreating to net or defense along the left, right, or center of the field
-    RETREATING_LEFT = auto()
-    RETREATING_RIGHT = auto()
-    RETREATING_CENTER = auto()
-    # pushing forward along the left, right, or center of the field
-    ADVANCING_LEFT = auto()
-    ADVANCING_RIGHT = auto()
-    ADVANCING_CENTER = auto()
-    # in the offensive corners
-    ATTACKING_LEFT_CORNER = auto()
-    ATTACKING_RIGHT_CORNER = auto()
-    # in a position for a pass center
-    ATTACKING_CENTER = auto()
-    # self explanatory
-    DEMOLISHED = auto()
