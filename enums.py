@@ -2,7 +2,7 @@ from enum import Enum, auto
      
 class posRelativeToBall(Enum):
     # right behind or under the ball
-    DRIBBLE = auto()
+    IN_POSSESSION = auto()
     # just past the ball, perhaps due to a whiff
     CLOSE_IN_FRONT = auto()
     # in front of the ball, but not right in front of it
