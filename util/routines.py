@@ -284,10 +284,10 @@ class Aerial:
         if self.ceiling:
             self.target -= Vector(z=agent.ball_radius)
 
-        if self.jumping or (self.jump_time == -1 and not agent.me.airborne):
+        if self.jumping or self.jump_time == -1:
             agent.dbg_2d("Jumping")
 
-            if self.jump_time == -1:
+            if not self.jumping or self.jump_time == -1:
                 self.jump_type_fast = self.fast_aerial
                 self.jumping = True
                 self.jump_time = agent.time
@@ -314,7 +314,7 @@ class Aerial:
 
                 if jump_elapsed <= jump_max_duration:
                     agent.controller.jump = True
-                else:
+                elif self.counter < 4:
                     self.counter += 1
 
                 if self.counter == 3:
@@ -339,33 +339,32 @@ class Aerial:
         agent.line(xf - Vector(z=100), xf + Vector(z=100), agent.renderer.red())
         agent.line(self.target - Vector(z=100), self.target + Vector(z=100), agent.renderer.green())
 
-        delta_v = delta_x.dot(agent.me.forward) / T
+        if not self.dodging:
+            target = delta_x if delta_x.magnitude() >= agent.boost_accel * agent.delta_time * 0.1 else self.shot_vector
+            target = agent.me.local(target)
 
-        if self.counter in {0, 4}:
-            target = agent.me.local(delta_x) if (delta_v >= agent.boost_accel * 0.1 + throttle_accel * agent.delta_time) or (T > 1 and delta_v >= throttle_accel * agent.delta_time * 0.1) else agent.me.local_location(self.target)
-
-            if self.jumping:
-                defaultPD(agent, target)
+            if agent.controller.jump:
+                defaultPD(agent, target.flatten(), up=agent.me.up)
             elif virxrlcu.find_landing_plane(tuple(agent.me.location), tuple(agent.me.velocity), agent.gravity.z) == 4:
                 defaultPD(agent, target, upside_down=True)
             else:
-                defaultPD(agent, target, upside_down=self.shot_vector.z <= 0)
+                defaultPD(agent, target, upside_down=self.shot_vector.z < 0)
 
         # only boost/throttle if we're facing the right direction
-        if T > 0 and abs(agent.me.forward.angle(direction)) < 0.5:
-            if not self.jumping and T > 0.3: agent.controller.roll = 1 if self.shot_vector.z < 0 else -1
+        if abs(agent.me.forward.dot(direction)) > 0.75 and T > 0:
+            if T > 1 and not self.jumping: agent.controller.roll = 1 if self.shot_vector.z < 0 else -1
             # the change in velocity the bot needs to put it on an intercept course with the target
-            if agent.me.airborne and agent.me.boost > 0 and delta_v >= agent.boost_accel * 0.1 + throttle_accel * agent.delta_time:
+            delta_v = delta_x.dot(agent.me.forward) / T
+            if not self.jumping and agent.me.boost > 0 and delta_v >= agent.boost_accel * agent.delta_time * 0.1:
                 agent.controller.boost = True
-                agent.controller.throttle = 1
-            elif abs(delta_v) >= throttle_accel * agent.delta_time * 0.1:
+                delta_v -= agent.boost_accel * agent.delta_time * 0.1
+
+            if abs(delta_v) >= throttle_accel * agent.delta_time:
                 agent.controller.throttle = cap(delta_v / (throttle_accel * agent.delta_time), -1, 1)
 
         if T <= -0.2 or (not self.jumping and not agent.me.airborne) or (not self.jumping and T > 1.5 and not virxrlcu.aerial_shot_is_viable(T, agent.boost_accel, tuple(agent.gravity), agent.me.get_raw(agent), tuple(self.target))):
             agent.pop()
             agent.shooting = False
-            agent.shot_weight = -1
-            agent.shot_time = -1
             agent.push(ball_recovery())
         elif (self.ceiling and self.target.dist(agent.me.location) < agent.ball_radius + agent.me.hitbox.length and not agent.me.doublejumped and agent.me.location.z < agent.ball.location.z + agent.ball_radius and self.target.y * side(agent.team) > -4240) or (not self.ceiling and not agent.me.doublejumped and T < 0.1):
             agent.dbg_2d("Flipping")
