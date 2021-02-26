@@ -62,7 +62,7 @@ class ExampleBot(VirxERLU):
             self.pop()
         
 
-        if len(self.stack) < 1 or (self.state == 'getting boost' and len(self.stack) == 1):
+        if len(self.stack) < 1 or (self.state == 'getting boost' and len(self.stack) == 1) and ((posOnField.GOALIE in [getPosOnField(car) for car in self.friends]) or len(self.friends) == 0):
             if self.state == 'getting boost' and len(self.stack) == 1:
                 self.pop()
             self.state = None
@@ -132,7 +132,7 @@ class ExampleBot(VirxERLU):
                         self.push(goto_boost(closest))
                         self.state = 'getting boost'
                     else:
-                        state = 'no close boost'
+                        self.state = 'no close boost'
                         return_to_goal = True
                 else:
                     return_to_goal = True
@@ -145,7 +145,7 @@ class ExampleBot(VirxERLU):
                 return_to_goal = True
                 self.state = 'RTG'
             
-            if return_to_goal and ((self.me.location.y - self.ball.location.y) * side(self.team) > 1000) and (self.me.location-self.ball.location).magnitude() > 500:
+            if return_to_goal and ((self.me.location.y - self.ball.location.y) * side(self.team) > 1000) and (self.me.location-self.ball.location).magnitude() > 500 and ((posOnField.GOALIE in [getPosOnField(car) for car in self.friends]) or len(self.friends) == 0):
                 self.state = 'HIT DA BALL'
                 relative_target = self.ball.location - self.me.location
                 angles, vel = defaultDrive(self, 1400, self.me.local(relative_target))
@@ -212,3 +212,43 @@ class ExampleBot(VirxERLU):
                 break
             output[name] = shot
         return output
+
+    def get_tmcp_action(self):
+        if self.is_clear():
+            if 'RTG' in self.state:
+                return {
+                    "type": "DEFEND"
+                }
+            return {
+                "type": "WAIT",
+                "ready": -1
+            }
+        
+        stack_routine_name = self.stack[0].__class__.__name__
+
+        if stack_routine_name in {'Aerial', 'jump_shot', 'ground_shot', 'double_jump', 'short_shot'}:
+            return {
+                "type": "BALL",
+                "time": -1 if stack_routine_name == 'short_shot' else self.stack[0].intercept_time
+            }
+        if stack_routine_name == "goto_boost":
+            return {
+                "type": "BOOST",
+                "target": self.stack[0].boost.index
+            }
+
+        if stack_routine_name == 'retreat':
+            return {
+                "type": "WAIT",
+                "ready": -1
+            }
+
+        # by default, VirxERLU can't demo bots
+        return {
+            "type": "WAIT",
+            "ready": self.get_minimum_game_time_to_ball()
+        }
+
+    def get_minimum_game_time_to_ball(self):
+        shot = find_any_shot(self)
+        return -1 if shot is None else shot.intercept_time
