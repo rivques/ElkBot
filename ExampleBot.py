@@ -152,8 +152,17 @@ class ExampleBot(VirxERLU):
                 self.controller.boost = False if abs(angles[1]) > 0.5 or self.me.airborne else self.controller.boost
                 self.controller.handbrake = True if abs(angles[1]) > 2.8 else False
             else:
-                if self.is_clear():
-                    self.push(retreat())
+                if not (side(self.team) * self.me.location.y > 5120):
+                    relative_target = self.friend_goal.location - self.me.location
+                    angles, vel = defaultDrive(self, 2300, self.me.local(relative_target))
+                    if angles[1] < 0.75 and relative_target.magnitude() > 750 and 500 < self.me.velocity.magnitude() < 1000 and self.time - self.RTG_flip_time > 2:
+                        self.push(flip(self.me.local(relative_target)))
+                        self.RTG_flip_time = self.time
+                    else:
+                        self.controller.boost = False if abs(angles[1]) > 0.5 or self.me.airborne else self.controller.boost
+                        self.controller.handbrake = True if abs(angles[1]) > 2.8 else False
+                else:
+                    self.state += ' (In goal)'
 
         if self.do_debug:
             #this overdoes the rendering, needs fixing
